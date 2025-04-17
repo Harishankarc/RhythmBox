@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "585535715377",
+    "project_id": "rhythmbox-6b5fe",
+    "storage_bucket": "rhythmbox-6b5fe.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:585535715377:android:ade8f3374132221e287d10",
+        "android_client_info": {
+          "package_name": "com.example.rhythmbox"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzJ7LTioONivOwfOnnWHgmoEJcQ_sQrF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
