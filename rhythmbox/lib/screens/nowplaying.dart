@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:rhythmbox/utils/apifromdb.dart';
 import 'package:rhythmbox/utils/constants.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart' as aj;
 
 class NowPlaying extends StatefulWidget {
-  const NowPlaying({super.key});
+  final int id;
+  const NowPlaying({super.key, required this.id});
 
   @override
   State<NowPlaying> createState() => _NowPlayingState();
@@ -11,16 +15,43 @@ class NowPlaying extends StatefulWidget {
 
 class _NowPlayingState extends State<NowPlaying> {
   bool isPlaying = false;
-  late final AudioPlayer player;
-  late final AssetSource path;
+  late final aj.AudioPlayer player;
 
   Duration _duration = const Duration();
   Duration _position = const Duration();
 
+  Apifromdb data = Apifromdb();
+  Map<String, dynamic>? songdata;
+
+  Future<void> getSongsFromDb() async {
+    final result = await data.getSongs();
+    final currentSong = result.firstWhere(
+      (song) => song['id'] == widget.id,
+      orElse: () => {},
+    );
+
+    if (currentSong.isEmpty) {
+      print("Song not found.");
+      return;
+    }
+
+    setState(() {
+      songdata = currentSong;
+    });
+
+    await initPlayer();
+  }
+
   @override
   void initState() {
     super.initState();
-    initPlayer();
+    player = aj.AudioPlayer();
+    setState(() {
+        isPlaying = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      getSongsFromDb();
+    });
   }
 
   @override
@@ -30,37 +61,58 @@ class _NowPlayingState extends State<NowPlaying> {
   }
 
   Future<void> initPlayer() async {
-    player = AudioPlayer();
-    path = AssetSource('audios/StarBoy.mp3');
+    try {
+      final String songUrl = songdata!['song']; 
+      print("Song URL: $songUrl");
 
-    player.onDurationChanged.listen((Duration d) {
-      setState(() {
-        _duration = d;
-      });
-    });
-    player.onPositionChanged.listen((Duration p) {
-      setState(() {
-        _position = p;
-      });
-    });
+      final source = aj.AudioSource.uri(Uri.parse(songUrl));
+      await player.setAudioSource(source);
+      await player.play();
 
-    player.onPlayerComplete.listen((_) {
-      setState(() {
-        _position = _duration;
-        isPlaying = false;
+      player.durationStream.listen((Duration? d) {
+        setState(() {
+          _duration = d ?? Duration.zero;
+        });
       });
-    });
+
+      player.positionStream.listen((Duration p) {
+        setState(() {
+          _position = p;
+        });
+      });
+
+      player.playerStateStream.listen((state) {
+        setState(() {
+          isPlaying = state.playing;
+        });
+
+        if (state.processingState == aj.ProcessingState.completed) {
+          setState(() {
+            _position = _duration;
+          });
+          Future.delayed(const Duration(seconds: 1),(){
+            Navigator.of(context).pop();
+          });
+        }
+      });
+    } catch (e) {
+      print("Error initializing player: $e");
+    }
   }
 
   Future<void> playPause() async {
-    if (isPlaying) {
+    try {
+    if (player.playing) {
       await player.pause();
     } else {
-      await player.play(path);
+      await player.play();
     }
     setState(() {
-      isPlaying = !isPlaying;
+      isPlaying = player.playing;
     });
+  } catch (e) {
+    print("Error toggling play/pause: $e");
+  }
   }
 
   @override
@@ -91,78 +143,59 @@ class _NowPlayingState extends State<NowPlaying> {
       backgroundColor: appBackground,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 20,right: 20),
-          child: SizedBox(
+          padding: const EdgeInsets.only(left: 20, right: 20),
+          child: songdata != null ? SizedBox(
             width: double.infinity,
+            height: double.infinity,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 30),
-                const Text(
-                  'Album',
-                  style: TextStyle(
-                    fontFamily: appFont,
-                    color: appTextColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Text(
-                  'STARBOY',
-                  style: TextStyle(
-                    fontFamily: appFont,
-                    color: appTextColor,
-                    fontSize: 45,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Text(
-                  'Morgan Maxwell - 2011',
-                  style: TextStyle(
-                    fontFamily: appFont,
-                    color: appTextColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Text(
-                  '11 Song List',
-                  style: TextStyle(
-                    fontFamily: appFont,
-                    color: appTextColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 30),
+              
                 Container(
                   width: double.infinity,
+                  height: MediaQuery.of(context).size.height * 0.6,
                   decoration: BoxDecoration(
                     color: appTextColor,
                     borderRadius: BorderRadius.circular(40),
+                    image: DecorationImage(
+                      image: songdata?['album'] != null
+                        ? MemoryImage(songdata!['album'] as Uint8List) 
+                        : AssetImage('assets/images/albumcover.jpg') as ImageProvider, 
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withOpacity(0.7), 
+                        BlendMode.darken, 
+                      ),
+                    ),
+                    
                   ),
+
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 30),
-                      const Text(
-                        'Title Song',
+                      Text(
+                        '${songdata?['title'].toUpperCase()}',
                         style: TextStyle(
                           fontFamily: appFont,
-                          color: appTextColor5,
+                          color: appTextColor,
+                          letterSpacing: 1,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${songdata?['artist']}',
+                        style: TextStyle(
+                          fontFamily: appFont,
+                          color: appTextColor,
+                          letterSpacing: 1,
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const Text(
-                        'STARBOY',
-                        style: TextStyle(
-                          fontFamily: appFont,
-                          color: appTextColor5,
-                          fontSize: 35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 30),
                       Stack(
                         alignment: Alignment.center,
                         children: [
@@ -170,7 +203,9 @@ class _NowPlayingState extends State<NowPlaying> {
                             borderRadius: BorderRadius.circular(100),
                             child: CircleAvatar(
                               radius: 100,
-                              child: Image.asset('assets/images/albumcover2.jpg'),
+                              child: songdata?['album'] != null
+                                  ? Image.memory(songdata!['album'],width: 200,height: 200,fit: BoxFit.cover,)
+                                  : Image.asset('assets/images/albumcover.jpg'),
                             ),
                           ),
                           ClipRRect(
@@ -191,7 +226,7 @@ class _NowPlayingState extends State<NowPlaying> {
                       ),
                       const SizedBox(height: 30),
                       Padding(
-                        padding: const EdgeInsets.only(left: 20,right: 20),
+                        padding: const EdgeInsets.only(left: 20, right: 20),
                         child: Slider(
                           value: _position.inSeconds.toDouble(),
                           onChanged: (value) async {
@@ -199,27 +234,37 @@ class _NowPlayingState extends State<NowPlaying> {
                           },
                           min: 0,
                           max: _duration.inSeconds.toDouble(),
-                          inactiveColor: appBackground,
-                          activeColor: appBackground,
+                          inactiveColor: Colors.white,
+                          activeColor: Colors.white,
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(left: 30,right: 30),
+                        padding: const EdgeInsets.only(left: 30, right: 30),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               _position.toString().split('.').first,
-                              style: const TextStyle(color: appTextColor5,fontFamily: appFont ,fontSize: 15,fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                color: appTextColor,
+                                fontFamily: appFont,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             Text(
                               _duration.toString().split('.').first,
-                              style: const TextStyle(color: appTextColor5,fontFamily: appFont ,fontSize: 15,fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                color: appTextColor,
+                                fontFamily: appFont,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 10,),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -227,17 +272,29 @@ class _NowPlayingState extends State<NowPlaying> {
                             onTap: () async {
                               await player.seek(Duration(seconds: _position.inSeconds - 10));
                             },
-                            child: const Icon(Icons.fast_rewind, color: appBackground,size: 40,),
+                            child: const Icon(
+                              Icons.fast_rewind,
+                              color: Colors.white,
+                              size: 40,
+                            ),
                           ),
                           InkWell(
                             onTap: playPause,
-                            child: Icon(isPlaying ? Icons.pause : Icons.play_arrow,  color: appBackground,size: 40,),
+                            child: Icon(
+                              isPlaying ? Icons.pause_circle_rounded : Icons.play_circle_fill_rounded,
+                              color: Colors.white,
+                              size: 50,
+                            ),
                           ),
                           InkWell(
                             onTap: () async {
                               await player.seek(Duration(seconds: _position.inSeconds + 10));
                             },
-                            child: const Icon(Icons.fast_forward,  color: appBackground,size: 40,),
+                            child: const Icon(
+                              Icons.fast_forward,
+                              color: Colors.white,
+                              size: 40,
+                            ),
                           ),
                         ],
                       ),
@@ -247,7 +304,9 @@ class _NowPlayingState extends State<NowPlaying> {
                 ),
               ],
             ),
-          ),
+          ) : const Center(child: CircularProgressIndicator(
+            color: appBackground3,
+          ),),
         ),
       ),
     );

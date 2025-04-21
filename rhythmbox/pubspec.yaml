@@ -38,11 +38,16 @@ dependencies:
   page_transition: ^2.1.0
   get: ^4.6.6
   audioplayers: ^6.0.0
-  flutter_launcher_icons: ^0.14.1
   http: ^1.2.2
   getwidget: ^6.0.0
-  get_storage: ^2.1.1
   supabase_flutter: ^2.8.4
+  connectivity_plus: ^6.1.3
+  internet_connection_checker: ^3.0.1
+  internet_connection_checker_plus: ^2.7.1
+  font_awesome_flutter: ^10.8.0
+  google_sign_in: ^6.2.2
+  just_audio: ^0.9.46
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -51,7 +56,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/rhythmboxlogo.png"
+  image_path: "assets/images/RhythmBoxLogo.png"
 
 
   # The "flutter_lints" package below contains a set of recommended lints to

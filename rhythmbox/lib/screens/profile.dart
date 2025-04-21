@@ -1,17 +1,167 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/painting.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
-import 'package:get_storage/get_storage.dart';
+import 'package:get/get.dart';
+import 'package:rhythmbox/auth/Authentication.dart';
+import 'package:rhythmbox/auth/login.dart';
+import 'package:rhythmbox/components/inputbox.dart';
+import 'package:rhythmbox/utils/conectivityservice.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
 
-
-class Profile extends StatelessWidget {
+class Profile extends StatefulWidget {
   const Profile({super.key});
 
   @override
+  State<Profile> createState() => _ProfileState();
+}
+
+class _ProfileState extends State<Profile> {
+  Authentication auth = new Authentication();
+  Conectivityservice _conectivityservice = Conectivityservice();
+  final upgradeContoller1 = TextEditingController();
+  final upgradeContoller2 = TextEditingController();
+  final upgradeContoller3 = TextEditingController();
+  final upgradeContoller4 = TextEditingController();
+  var isShown = false;
+  late final _currentUser;
+  late double widthInput;
+
+  void _showUpgradeModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: const Color.fromARGB(208, 35, 36, 41),
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+          elevation: 16,
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: const Color.fromARGB(208, 35, 36, 41),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                    },
+                  child: Icon(Icons.arrow_back_ios_new,size: 20,color: Colors.white,))),
+                Text(
+                  'Upgrade Your Plan',
+                  style: TextStyle(
+                    decoration: TextDecoration.none,
+                      fontFamily: appFont,
+                      color: appTextColor,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Get access to all features of Rhythmbox',
+                  style: TextStyle(
+                    decoration: TextDecoration.none,
+                      fontFamily: appFont,
+                      color: appTextColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    InputBox(controller: upgradeContoller1, width: widthInput, textalign: true,),
+                    InputBox(controller: upgradeContoller2, width: widthInput, textalign: true,),
+                    InputBox(controller: upgradeContoller3, width: widthInput, textalign: true,),
+                    InputBox(controller: upgradeContoller4, width: widthInput, textalign: true,),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () async {
+                    final enteredvalue = upgradeContoller1.text + upgradeContoller2.text + upgradeContoller3.text + upgradeContoller4.text;
+                    if (enteredvalue == '1234') {
+                      try{
+                        final response = await Supabase.instance.client.auth.updateUser(
+                          UserAttributes(
+                            data: {
+                              'ispremium' : true
+                            }
+                          )
+                        );
+                        if(response.user != null && response.user!.userMetadata != null && response.user!.userMetadata!['ispremium'] == true){
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("You have successfully upgraded your plan"),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          setState(() {
+                            _currentUser = Supabase.instance.client.auth.currentUser;
+                          });
+                          Navigator.of(context).pop();
+                        }
+                        
+                      }catch(e){
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("An error occurred: $e"),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }else{
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Incorrect passcode!"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: ButtonStyle(
+                      backgroundColor:
+                          const WidgetStatePropertyAll(buttonOverlay),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.only(
+                          left: 20, right: 20, top: 10, bottom: 10)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)))),
+                  child: const Text(
+                    'Upgrade Now',
+                    style: TextStyle(
+                        fontFamily: appFont,
+                        color: appTextColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _conectivityservice.checkInternet(context);
+    _currentUser = Supabase.instance.client.auth.currentUser;
+    print(_currentUser);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    widthInput = (MediaQuery.of(context).size.width - 140) /4;
     return Scaffold(
       backgroundColor: appBackground,
       body: SingleChildScrollView(
@@ -20,7 +170,9 @@ class Profile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                const SizedBox(height: 10,),
+                const SizedBox(
+                  height: 10,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -33,101 +185,249 @@ class Profile extends StatelessWidget {
                         color: appTextColor,
                       ),
                     ),
-                    const Text('Good Evening Harishankar !',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 25,fontWeight: FontWeight.w500),),
+                    Text(
+                      'Good Evening ${_currentUser?.userMetadata?['name']} !',
+                      style: TextStyle(
+                          fontFamily: appFont,
+                          color: appTextColor,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20,),
+                const SizedBox(
+                  height: 20,
+                ),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(100),
                       child: CircleAvatar(
                         radius: 60,
-                        child: Image.asset('assets/images/profile.jpg'),
+                        child: _currentUser?.userMetadata?['avatar_url'] != null ? Image.network("${_currentUser?.userMetadata?['avatar_url']}",scale: 0.1,) : Image.asset('assets/images/profile.jpg'),
                       ),
+                    ),
+                    SizedBox(
+                      width: 50,
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("hari",style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 35,fontWeight: FontWeight.w600),),
-                        const SizedBox(height: 10,),
+                        Text(
+                          "${_currentUser?.userMetadata?['name']}",
+                          style: TextStyle(
+                              fontFamily: appFont,
+                              color: appTextColor,
+                              fontSize: 35,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(
+                          height: 10,
+                        ),
                         Row(
                           children: [
-                            Container(decoration: const BoxDecoration(color: buttonOverlay),child: const Text(' 999 Followers ',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 15,fontWeight: FontWeight.w500),)),
-                            const SizedBox(width: 5,),
-                            Container(decoration: const BoxDecoration(color: buttonOverlay),child: const Text(' 999 Following ',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 15,fontWeight: FontWeight.w500),)),
-
+                            Container(
+                                decoration:
+                                    const BoxDecoration(color: buttonOverlay),
+                                child: const Text(
+                                  ' 999 Followers ',
+                                  style: TextStyle(
+                                      fontFamily: appFont,
+                                      color: appTextColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500),
+                                )),
+                            const SizedBox(
+                              width: 5,
+                            ),
+                            Container(
+                                decoration:
+                                    const BoxDecoration(color: buttonOverlay),
+                                child: const Text(
+                                  ' 999 Following ',
+                                  style: TextStyle(
+                                      fontFamily: appFont,
+                                      color: appTextColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500),
+                                )),
                           ],
                         ),
-                        const SizedBox(height: 10,),
-                        const Row(
+                        const SizedBox(
+                          height: 10,
+                        ),
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Free Account',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 18,fontWeight: FontWeight.w600),),
-                            SizedBox(width: 10,),
-                            Text('Upgrade',style: TextStyle(fontFamily: appFont ,color: appTextColor4,fontSize: 18,fontWeight: FontWeight.w600),),
+                            Text(
+                               _currentUser?.userMetadata['ispremium'] == true
+                                  ? 'Premium Account'
+                                  : 'Free Account',
+                              style: TextStyle(
+                                  fontFamily: appFont,
+                                  color: _currentUser?.userMetadata['ispremium'] == true ? Colors.yellowAccent : appTextColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            SizedBox(
+                              width: 10,
+                            ),
                           ],
                         )
                       ],
                     ),
-                    
                   ],
                 ),
-                const SizedBox(height: 20,),
+                const SizedBox(
+                  height: 20,
+                ),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    TextButton(onPressed: (){},style: ButtonStyle(
-                      backgroundColor: const WidgetStatePropertyAll(buttonOverlay),
-                      padding: const WidgetStatePropertyAll(EdgeInsets.only(left: 20,right: 20,top: 10,bottom: 10)),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))
-                    ), child: const Text('Edit Profile',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 20,fontWeight: FontWeight.w600),),),
-                    TextButton(onPressed: (){},style: ButtonStyle(
-                      backgroundColor: const WidgetStatePropertyAll(buttonOverlay),
-                      padding: const WidgetStatePropertyAll(EdgeInsets.only(left: 20,right: 20,top: 10,bottom: 10)),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))
-                    ), child: const Text('Share Profile',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 20,fontWeight: FontWeight.w600),),),
+                    TextButton(
+                      onPressed: () {
+                        _currentUser?.userMetadata['ispremium'] == true ? null : _showUpgradeModal(context);
+                      },
+                      style: ButtonStyle(
+                          backgroundColor:
+                              const WidgetStatePropertyAll(buttonOverlay),
+                          padding: const WidgetStatePropertyAll(EdgeInsets.only(
+                              left: 20, right: 20, top: 10, bottom: 10)),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)))),
+                      child: Text(
+                        _currentUser?.userMetadata['ispremium'] == true ? 'Upgraded' : 'Upgrade Now',
+                        style: TextStyle(
+                            fontFamily: appFont,
+                            color: appTextColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 30,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text("This feature is not available yet!"),
+                        backgroundColor: Colors.red,
+                        elevation: 20 * 4.0,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                      },
+                      style: ButtonStyle(
+                          backgroundColor:
+                              const WidgetStatePropertyAll(buttonOverlay),
+                          padding: const WidgetStatePropertyAll(EdgeInsets.only(
+                              left: 20, right: 20, top: 10, bottom: 10)),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)))),
+                      child: const Text(
+                        'Share Profile',
+                        style: TextStyle(
+                            fontFamily: appFont,
+                            color: appTextColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 30,
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final response = await auth.logOutUser();
+                        if (response == 200) {
+                          await Get.to(() => const Login(),
+                              transition: Transition.cupertino,
+                              duration: const Duration(milliseconds: 500));
+                        }
+                      },
+                      style: ButtonStyle(
+                          backgroundColor:
+                              const WidgetStatePropertyAll(buttonOverlay),
+                          padding: const WidgetStatePropertyAll(EdgeInsets.only(
+                              left: 20, right: 20, top: 10, bottom: 10)),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)))),
+                      child: const Text(
+                        'Log Out',
+                        style: TextStyle(
+                            fontFamily: appFont,
+                            color: Colors.red,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20,),
+                const SizedBox(
+                  height: 20,
+                ),
                 Container(
                   // height: 320,
                   decoration: BoxDecoration(
-                    color: buttonOverlay,
-                    borderRadius: BorderRadius.circular(10)
-                  ),
+                      color: buttonOverlay,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Padding(
                     padding: const EdgeInsets.all(15),
                     child: Column(
                       children: [
-                        const Align(alignment: Alignment.centerLeft,child: Text('Jump back in',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 25,fontWeight: FontWeight.w600),)),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Jump back in',
+                              style: TextStyle(
+                                  fontFamily: appFont,
+                                  color: appTextColor,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w600),
+                            )),
                         SizedBox(
                           height: 250,
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: 10,
                             scrollDirection: Axis.horizontal,
-                            itemBuilder: (context,index){
+                            itemBuilder: (context, index) {
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const SizedBox(height: 20,),
+                                  const SizedBox(
+                                    height: 20,
+                                  ),
                                   Padding(
                                     padding: const EdgeInsets.only(right: 25),
                                     child: SizedBox(
                                       child: Column(
                                         children: [
-                                          ClipRRect(borderRadius: BorderRadius.circular(100),child: Image.asset('assets/images/albumcover2.jpg',width: 150,)),
-                                          const SizedBox(height: 10,),
-                                          const Text('Morgan Maxwell',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 20,fontWeight: FontWeight.w500),),
-                                                                  
+                                          ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(100),
+                                              child: Image.asset(
+                                                'assets/images/albumcover2.jpg',
+                                                width: 150,
+                                              )),
+                                          const SizedBox(
+                                            height: 10,
+                                          ),
+                                          const Text(
+                                            'Morgan Maxwell',
+                                            style: TextStyle(
+                                                fontFamily: appFont,
+                                                color: appTextColor,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w500),
+                                          ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                
                                 ],
                               );
                             },
@@ -137,45 +437,69 @@ class Profile extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 20,),
+                const SizedBox(
+                  height: 20,
+                ),
                 Container(
                   // height: 320,
                   decoration: BoxDecoration(
-                    color: buttonOverlay,
-                    borderRadius: BorderRadius.circular(10)
-                  ),
+                      color: buttonOverlay,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Padding(
                     padding: const EdgeInsets.all(15),
                     child: Column(
                       children: [
-                        const Align(alignment: Alignment.centerLeft,child: Text('Favorate',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 25,fontWeight: FontWeight.w600),)),
+                        const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Favorate',
+                              style: TextStyle(
+                                  fontFamily: appFont,
+                                  color: appTextColor,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w600),
+                            )),
                         SizedBox(
                           height: 250,
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: 10,
                             scrollDirection: Axis.horizontal,
-                            itemBuilder: (context,index){
+                            itemBuilder: (context, index) {
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const SizedBox(height: 20,),
+                                  const SizedBox(
+                                    height: 20,
+                                  ),
                                   Padding(
                                     padding: const EdgeInsets.only(right: 25),
                                     child: SizedBox(
                                       child: Column(
                                         children: [
-                                          ClipRRect(borderRadius: BorderRadius.circular(100),child: Image.asset('assets/images/albumcover2.jpg',width: 150,)),
-                                          const SizedBox(height: 10,),
-                                          const Text('Morgan Maxwell',style: TextStyle(fontFamily: appFont ,color: appTextColor,fontSize: 20,fontWeight: FontWeight.w500),),
-                                                                  
+                                          ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(100),
+                                              child: Image.asset(
+                                                'assets/images/albumcover2.jpg',
+                                                width: 150,
+                                              )),
+                                          const SizedBox(
+                                            height: 10,
+                                          ),
+                                          const Text(
+                                            'Morgan Maxwell',
+                                            style: TextStyle(
+                                                fontFamily: appFont,
+                                                color: appTextColor,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w500),
+                                          ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                
                                 ],
                               );
                             },

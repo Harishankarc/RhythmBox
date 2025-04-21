@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'package:rhythmbox/auth/Authentication.dart';
 import 'package:rhythmbox/auth/signup.dart';
 import 'package:rhythmbox/components/appbutton.dart';
+import 'package:rhythmbox/components/appbuttonwithicon.dart';
 import 'package:rhythmbox/components/inputbox.dart';
 import 'package:rhythmbox/screens/HomePage.dart';
+import 'package:rhythmbox/screens/splashscreen.dart';
+import 'package:rhythmbox/utils/conectivityservice.dart';
 import 'package:rhythmbox/utils/constants.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class Login extends StatefulWidget {
   
@@ -19,6 +25,14 @@ class _LoginState extends State<Login> {
   final TextEditingController emailcontroller = TextEditingController();
   final TextEditingController passwordcontroller = TextEditingController();
   Authentication userAuth = new Authentication();
+  Conectivityservice _conectivityservice = Conectivityservice();
+  @override
+  void initState() {
+    super.initState();
+    _conectivityservice.checkInternet(context);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -33,27 +47,26 @@ class _LoginState extends State<Login> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center, 
                   children: [
-                    Container(
-                      width: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(100),
-                        child: Image.asset('assets/images/profile.jpg'),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
+                    
                     Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Text(
-                          'WELCOME TO RHYTHMBOX',
+                          'WELCOME TO',
                           style: TextStyle(
                             fontFamily: appFont,
                             color: appTextColor,
-                            fontSize: 30,
+                            fontSize: 20,
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Text(
+                          'RHYTHMBOX',
+                          style: TextStyle(
+                            fontFamily: appFont,
+                            color: appTextColor,
+                            fontSize: 35,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const Text(
@@ -61,7 +74,7 @@ class _LoginState extends State<Login> {
                           style: TextStyle(
                             fontFamily: appFont,
                             color: appTextColor,
-                            fontSize: 20,
+                            fontSize: 15,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -71,15 +84,6 @@ class _LoginState extends State<Login> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'LOGIN',
-                style: TextStyle(
-                  fontFamily: appFont,
-                  color: appTextColor,
-                  fontSize: 35,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
               
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
@@ -92,15 +96,71 @@ class _LoginState extends State<Login> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
                 child: AppButton(
-                  text: "login",
+                  text: "Login",
                   onPressed: () async {
                     final status = await userAuth.loginUser(emailcontroller.text, passwordcontroller.text);
                     if(status == 200){
                        await Get.to(()=>const HomePage(),transition: Transition.cupertino,duration: const Duration(milliseconds: 500));
+                    }else if (status == 500) {
+                      Get.showSnackbar(
+                        const GetSnackBar(
+                          title: 'Error',
+                          message: 'Invalid Credentials',
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                          snackPosition: SnackPosition.TOP,
+                        ),
+                      );
+                    } else {
+                      Get.showSnackbar(
+                        const GetSnackBar(
+                          title: 'Error',
+                          message: 'Something went wrong',
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                          snackPosition: SnackPosition.TOP,
+                        ),
+                      );
                     }
                   },
                 ),
               ),
+
+              //google
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                child: AppButtonWithIcon(
+                  // icon: FontAwesomeIcons.facebook,
+                  text: "Login with Google",
+                  onPressed: () async {
+                    final status = await userAuth.SignInWithGoogle();
+                    if(status == 200){
+                       await Get.to(()=>const SplashScreen(),transition: Transition.cupertino,duration: const Duration(milliseconds: 500));
+                    }else if (status == 500) {
+                      Get.showSnackbar(
+                        const GetSnackBar(
+                          title: 'Error',
+                          message: 'Invalid Credentials',
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                          snackPosition: SnackPosition.TOP,
+                        ),
+                      );
+                    } else {
+                      Get.showSnackbar(
+                        const GetSnackBar(
+                          title: 'Error',
+                          message: 'Something went wrong',
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                          snackPosition: SnackPosition.TOP,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+
               GestureDetector(
                 onTap: () async {
                    await Get.to(()=>const SignUp(),transition: Transition.cupertino,duration: const Duration(milliseconds: 500));
