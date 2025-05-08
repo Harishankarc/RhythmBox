@@ -6,23 +6,22 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:rhythmbox/utils/apifromdb.dart';
 import 'package:rhythmbox/utils/constants.dart';
 
-class NowPlaying extends StatefulWidget {
-  final int song_id;
-  final String user_id;
+class NowPlayingLocally extends StatefulWidget {
+  final String? song_path;
+  final String? song_name;
+  final String? song_artist;
+  final Uint8List? song_photo_mem;
+  final String? song_photo_file;
 
-  const NowPlaying({super.key, required this.song_id, required this.user_id});
+  const NowPlayingLocally({super.key,  this.song_path, this.song_name, this.song_artist, this.song_photo_mem, this.song_photo_file});
 
   @override
-  State<NowPlaying> createState() => _NowPlayingState();
+  State<NowPlayingLocally> createState() => _NowPlayingLocallyState();
 }
 
-class _NowPlayingState extends State<NowPlaying> {
+class _NowPlayingLocallyState extends State<NowPlayingLocally> {
   final aj.AudioPlayer player = aj.AudioPlayer();
-  final Apifromdb data = Apifromdb();
   bool isLoading = true;
-
-  Map<String, dynamic>? songdata;
-  bool isLiked = false;
   bool isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
@@ -40,24 +39,12 @@ class _NowPlayingState extends State<NowPlaying> {
   }
 
   Future<void> _loadSongData() async {
-    try {
-      final result = await data.getSongs();
-      final current =
-          result.firstWhere((e) => e['id'] == widget.song_id, orElse: () => {});
-      if (current.isEmpty) return;
-
-      setState(() => songdata = current);
-      isLiked = (await data.checkIfLiked(widget.song_id, widget.user_id)) == 1;
-      await data.addOrUpdateRecentlyPlayedMusic(widget.user_id, widget.song_id);
-      await _initializePlayer();
-    } catch (e) {
-      print("Error loading song data: $e");
-    }
+    await _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
     try {
-      final source = aj.AudioSource.uri(Uri.parse(songdata!['song']));
+      final source = aj.AudioSource.uri(Uri.parse('file://${widget.song_path}'));
       await player.setAudioSource(source);
       await player.load();
 
@@ -77,7 +64,6 @@ class _NowPlayingState extends State<NowPlaying> {
       setState(() => isLoading = false);
       await player.play();
       setState(() => isLoading = false);
-
     } catch (e) {
       print("Player error: $e");
     }
@@ -92,55 +78,49 @@ class _NowPlayingState extends State<NowPlaying> {
     setState(() => isPlaying = player.playing);
   }
 
-  Future<void> _toggleLike() async {
-    final status = await data.likeSong(widget.song_id, widget.user_id);
-    if (status == 200) {
-      setState(() => isLiked = !isLiked);
-    }
-  }
-Widget loadSplashScreen(){
+
+  Widget loadSplashScreen() {
     return Scaffold(
       backgroundColor: appBackground,
       body: Center(
-                    child: LoadingAnimationWidget.hexagonDots(
-                        color: appTextColor, size: 50)
-      ),
-    );
-  }
-  Widget _buildBackground() {
-    if (songdata?['album'] == null) {
-      return Center(
-        child:
-            LoadingAnimationWidget.hexagonDots(color: appTextColor, size: 60),
-      );
-    }
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Image.memory(
-        songdata!['album'],
-        fit: BoxFit.cover,
-        height: double.infinity,
-        width: double.infinity,
-      ),
+          child: LoadingAnimationWidget.hexagonDots(
+              color: appTextColor, size: 50)),
     );
   }
 
+  Widget _buildBackground() {
+    if(widget.song_photo_mem != null){
+        return ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Image.memory(
+            widget.song_photo_mem!,
+            fit: BoxFit.cover,
+            height: double.infinity,
+            width: double.infinity,
+          ),
+      );
+    }else{
+      return ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Image.network(
+          widget.song_photo_file!,
+          fit: BoxFit.cover,
+          height: double.infinity,
+          width: double.infinity,
+        ),
+      );
+    }
+
+  }
 
   Widget _buildContent() {
-    if (songdata == null) {
-      return Center(
-        child:
-            LoadingAnimationWidget.hexagonDots(color: appTextColor, size: 60),
-      );
-    }
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(songdata!['title'].toUpperCase(),
+            Text(widget.song_name!.toUpperCase(),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: appTextColor,
@@ -149,14 +129,18 @@ Widget loadSplashScreen(){
                   letterSpacing: 1.2,
                 )),
             const SizedBox(height: 6),
-            Text(songdata!['artist'],
-                style: const TextStyle(
-                     color: Colors.white70, fontSize: 18)),
+            Text(widget.song_artist!,
+                style: const TextStyle(color: Colors.white70, fontSize: 18)),
             const SizedBox(height: 30),
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.memory(
-                songdata!['album'],
+              child: widget.song_photo_mem != null ? Image.memory(
+                widget.song_photo_mem!,
+                width: 300,
+                height: 300,
+                fit: BoxFit.cover,
+              ) : Image.network(
+                widget.song_photo_file!,
                 width: 300,
                 height: 300,
                 fit: BoxFit.cover,
@@ -211,37 +195,13 @@ Widget loadSplashScreen(){
               ],
             ),
             const SizedBox(height: 25),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                GestureDetector(onTap: (){
-                  ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              const Text("This feature is not available yet!"),
-                          backgroundColor: Colors.red,
-                          elevation: 20 * 4.0,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                },child: const Icon(Icons.share, color: Colors.white)),
-                GestureDetector(
-                  onTap: _toggleLike,
-                  child: Icon(
-                    isLiked
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: isLiked ? Colors.red : Colors.white,
-                    size: 30,
-                  ),
-                ),
-              ],
-            )
+            
           ],
         ),
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -261,21 +221,19 @@ Widget loadSplashScreen(){
         centerTitle: true,
         elevation: 0,
       ),
-      body:
-
-        isLoading
+      body: isLoading
           ? loadSplashScreen()
           : Stack(
-        children: [
-           _buildBackground(),
-          Container(
-            color: Colors.black.withOpacity(0.4),
-          ),
-          SafeArea(
-            child: _buildContent() ,
-          )
-        ],
-      ),
+              children: [
+                _buildBackground(),
+                Container(
+                  color: Colors.black.withOpacity(0.4),
+                ),
+                SafeArea(
+                  child: _buildContent(),
+                )
+              ],
+            ),
     );
   }
 }
