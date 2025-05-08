@@ -7,6 +7,7 @@ import 'package:rhythmbox/components/appbutton.dart';
 import 'package:rhythmbox/components/appbuttonwithicon.dart';
 import 'package:rhythmbox/components/inputbox.dart';
 import 'package:rhythmbox/screens/HomePage.dart';
+import 'package:rhythmbox/utils/MainNavigation.dart';
 import 'package:rhythmbox/utils/conectivityservice.dart';
 import 'package:rhythmbox/utils/constants.dart';
 
@@ -37,21 +38,20 @@ class _SignUpState extends State<SignUp> {
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center, 
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center, 
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    
+
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Text(
                           'WELCOME TO',
                           style: TextStyle(
-                            fontFamily: appFont,
                             color: appTextColor,
                             fontSize: 20,
                             fontWeight: FontWeight.w500,
@@ -60,7 +60,6 @@ class _SignUpState extends State<SignUp> {
                         const Text(
                           'RHYTHMBOX',
                           style: TextStyle(
-                            fontFamily: appFont,
                             color: appTextColor,
                             fontSize: 35,
                             fontWeight: FontWeight.w500,
@@ -69,7 +68,6 @@ class _SignUpState extends State<SignUp> {
                         const Text(
                           'sign up to see the magic!',
                           style: TextStyle(
-                            fontFamily: appFont,
                             color: appTextColor,
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -124,7 +122,7 @@ class _SignUpState extends State<SignUp> {
                           snackPosition: SnackPosition.TOP,
                         ),
                       );
-                      await Get.to(()=>const HomePage(),transition: Transition.cupertino,duration: const Duration(milliseconds: 500));
+                      await Get.to(()=>const MainNavigation(),transition: Transition.cupertino,duration: const Duration(milliseconds: 500));
                     }else if (status == 500) {
                       Get.showSnackbar(
                         const GetSnackBar(

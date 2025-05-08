@@ -28,26 +28,26 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     if (!songFile || !coverImage || !songTitle) {
       alert('Please fill out all fields.');
       return;
     }
-  
+
     const formData = new FormData();
     formData.append('title', songTitle);
-    formData.append('song', songFile); 
-    formData.append('album', coverImage); 
-    formData.append('artist', songArtist); 
-    formData.append('genere', songGenere); 
-  
+    formData.append('song', songFile);
+    formData.append('album', coverImage);
+    formData.append('artist', songArtist);
+    formData.append('genere', songGenere);
+
     try {
       const response = await axios.post('https://rhythmbox.sattva2025.site/addsong', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
+
       if (response.status === 200) {
         console.log('Upload successful:', response.data);
         setSongTitle('');

@@ -1,57 +1,35 @@
-import 'dart:typed_data';
-
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart' as aj;
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:rhythmbox/utils/apifromdb.dart';
 import 'package:rhythmbox/utils/constants.dart';
-import 'package:just_audio/just_audio.dart' as aj;
 
 class NowPlaying extends StatefulWidget {
-  final int id;
-  const NowPlaying({super.key, required this.id});
+  final int song_id;
+  final String user_id;
+
+  const NowPlaying({super.key, required this.song_id, required this.user_id});
 
   @override
   State<NowPlaying> createState() => _NowPlayingState();
 }
 
 class _NowPlayingState extends State<NowPlaying> {
-  bool isPlaying = false;
-  late final aj.AudioPlayer player;
+  final aj.AudioPlayer player = aj.AudioPlayer();
+  final Apifromdb data = Apifromdb();
+  bool isLoading = true;
 
-  Duration _duration = const Duration();
-  Duration _position = const Duration();
-
-  Apifromdb data = Apifromdb();
   Map<String, dynamic>? songdata;
-
-  Future<void> getSongsFromDb() async {
-    final result = await data.getSongs();
-    final currentSong = result.firstWhere(
-      (song) => song['id'] == widget.id,
-      orElse: () => {},
-    );
-
-    if (currentSong.isEmpty) {
-      print("Song not found.");
-      return;
-    }
-
-    setState(() {
-      songdata = currentSong;
-    });
-
-    await initPlayer();
-  }
+  bool isLiked = false;
+  bool isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    player = aj.AudioPlayer();
-    setState(() {
-        isPlaying = true;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      getSongsFromDb();
-    });
+    _loadSongData();
   }
 
   @override
@@ -60,254 +38,236 @@ class _NowPlayingState extends State<NowPlaying> {
     super.dispose();
   }
 
-  Future<void> initPlayer() async {
+  Future<void> _loadSongData() async {
     try {
-      final String songUrl = songdata!['song']; 
-      print("Song URL: $songUrl");
+      final result = await data.getSongs();
+      final current =
+          result.firstWhere((e) => e['id'] == widget.song_id, orElse: () => {});
+      if (current.isEmpty) return;
 
-      final source = aj.AudioSource.uri(Uri.parse(songUrl));
-      await player.setAudioSource(source);
-      await player.play();
-
-      player.durationStream.listen((Duration? d) {
-        setState(() {
-          _duration = d ?? Duration.zero;
-        });
-      });
-
-      player.positionStream.listen((Duration p) {
-        setState(() {
-          _position = p;
-        });
-      });
-
-      player.playerStateStream.listen((state) {
-        setState(() {
-          isPlaying = state.playing;
-        });
-
-        if (state.processingState == aj.ProcessingState.completed) {
-          setState(() {
-            _position = _duration;
-          });
-          Future.delayed(const Duration(seconds: 1),(){
-            Navigator.of(context).pop();
-          });
-        }
-      });
+      setState(() => songdata = current);
+      isLiked = (await data.checkIfLiked(widget.song_id, widget.user_id)) == 1;
+      await data.addOrUpdateRecentlyPlayedMusic(widget.user_id, widget.song_id);
+      await _initializePlayer();
     } catch (e) {
-      print("Error initializing player: $e");
+      print("Error loading song data: $e");
     }
   }
 
-  Future<void> playPause() async {
+  Future<void> _initializePlayer() async {
     try {
+      final source = aj.AudioSource.uri(Uri.parse(songdata!['song']));
+      await player.setAudioSource(source);
+      await player.load();
+
+      player.durationStream
+          .listen((d) => setState(() => _duration = d ?? Duration.zero));
+      player.positionStream.listen((p) => setState(() => _position = p));
+      player.playerStateStream.listen((state) {
+        setState(() => isPlaying = state.playing);
+        if (state.processingState == aj.ProcessingState.completed) {
+          setState(() => _position = _duration);
+          Future.delayed(
+              const Duration(seconds: 1), () => Navigator.pop(context));
+        }
+      });
+
+      setState(() => isPlaying = true);
+      setState(() => isLoading = false);
+      await player.play();
+    } catch (e) {
+      print("Player error: $e");
+    }
+  }
+
+  Future<void> _togglePlayPause() async {
     if (player.playing) {
       await player.pause();
     } else {
       await player.play();
     }
-    setState(() {
-      isPlaying = player.playing;
-    });
-  } catch (e) {
-    print("Error toggling play/pause: $e");
+    setState(() => isPlaying = player.playing);
   }
+
+  Future<void> _toggleLike() async {
+    final status = await data.likeSong(widget.song_id, widget.user_id);
+    if (status == 200) {
+      setState(() => isLiked = !isLiked);
+    }
+  }
+Widget loadSplashScreen(){
+    return Scaffold(
+      backgroundColor: appBackground,
+      body: Center(
+                    child: LoadingAnimationWidget.hexagonDots(
+                        color: appTextColor, size: 50)
+      ),
+    );
+  }
+  Widget _buildBackground() {
+    if (songdata?['album'] == null) {
+      return Center(
+        child:
+            LoadingAnimationWidget.hexagonDots(color: appTextColor, size: 60),
+      );
+    }
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Image.memory(
+        songdata!['album'],
+        fit: BoxFit.cover,
+        height: double.infinity,
+        width: double.infinity,
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (songdata == null) {
+      return Center(
+        child:
+            LoadingAnimationWidget.hexagonDots(color: appTextColor, size: 60),
+      );
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(songdata!['title'].toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: appTextColor,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                )),
+            const SizedBox(height: 6),
+            Text(songdata!['artist'],
+                style: const TextStyle(
+                     color: Colors.white70, fontSize: 18)),
+            const SizedBox(height: 30),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.memory(
+                songdata!['album'],
+                width: 300,
+                height: 300,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 30),
+            Slider(
+              value: _position.inSeconds.toDouble(),
+              max: _duration.inSeconds.toDouble(),
+              onChanged: (v) => player.seek(Duration(seconds: v.toInt())),
+              activeColor: Colors.white,
+              inactiveColor: Colors.white38,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_position.toString().split('.').first,
+                      style: const TextStyle(color: Colors.white)),
+                  Text(_duration.toString().split('.').first,
+                      style: const TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.fast_rewind,
+                      color: Colors.white, size: 35),
+                  onPressed: () =>
+                      player.seek(Duration(seconds: _position.inSeconds - 10)),
+                ),
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                  onPressed: _togglePlayPause,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.fast_forward,
+                      color: Colors.white, size: 35),
+                  onPressed: () =>
+                      player.seek(Duration(seconds: _position.inSeconds + 10)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 25),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                GestureDetector(onTap: (){
+                  ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content:
+                              const Text("This feature is not available yet!"),
+                          backgroundColor: Colors.red,
+                          elevation: 20 * 4.0,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                },child: const Icon(Icons.share, color: Colors.white)),
+                GestureDetector(
+                  onTap: _toggleLike,
+                  child: Icon(
+                    isLiked
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: isLiked ? Colors.red : Colors.white,
+                    size: 30,
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: appTextColor,
-          ),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+          icon: const Icon(Icons.arrow_back_ios_new, color: appTextColor),
+          onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: appBackground,
-        title: const Text(
-          'NOW PLAYING',
-          style: TextStyle(
-            fontFamily: appFont,
-            color: appTextColor,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('NOW PLAYING',
+            style: TextStyle(
+              color: appTextColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            )),
         centerTitle: true,
+        elevation: 0,
       ),
-      backgroundColor: appBackground,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 20, right: 20),
-          child: songdata != null ? SizedBox(
-            width: double.infinity,
-            height: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-              
-                Container(
-                  width: double.infinity,
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  decoration: BoxDecoration(
-                    color: appTextColor,
-                    borderRadius: BorderRadius.circular(40),
-                    image: DecorationImage(
-                      image: songdata?['album'] != null
-                        ? MemoryImage(songdata!['album'] as Uint8List) 
-                        : AssetImage('assets/images/albumcover.jpg') as ImageProvider, 
-                      fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.7), 
-                        BlendMode.darken, 
-                      ),
-                    ),
-                    
-                  ),
-
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${songdata?['title'].toUpperCase()}',
-                        style: TextStyle(
-                          fontFamily: appFont,
-                          color: appTextColor,
-                          letterSpacing: 1,
-                          fontSize: 25,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${songdata?['artist']}',
-                        style: TextStyle(
-                          fontFamily: appFont,
-                          color: appTextColor,
-                          letterSpacing: 1,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: CircleAvatar(
-                              radius: 100,
-                              child: songdata?['album'] != null
-                                  ? Image.memory(songdata!['album'],width: 200,height: 200,fit: BoxFit.cover,)
-                                  : Image.asset('assets/images/albumcover.jpg'),
-                            ),
-                          ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: const CircleAvatar(
-                              radius: 30,
-                              backgroundColor: appBackground3,
-                            ),
-                          ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: const CircleAvatar(
-                              radius: 20,
-                              backgroundColor: appTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 20, right: 20),
-                        child: Slider(
-                          value: _position.inSeconds.toDouble(),
-                          onChanged: (value) async {
-                            await player.seek(Duration(seconds: value.toInt()));
-                          },
-                          min: 0,
-                          max: _duration.inSeconds.toDouble(),
-                          inactiveColor: Colors.white,
-                          activeColor: Colors.white,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 30, right: 30),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _position.toString().split('.').first,
-                              style: const TextStyle(
-                                color: appTextColor,
-                                fontFamily: appFont,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              _duration.toString().split('.').first,
-                              style: const TextStyle(
-                                color: appTextColor,
-                                fontFamily: appFont,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          InkWell(
-                            onTap: () async {
-                              await player.seek(Duration(seconds: _position.inSeconds - 10));
-                            },
-                            child: const Icon(
-                              Icons.fast_rewind,
-                              color: Colors.white,
-                              size: 40,
-                            ),
-                          ),
-                          InkWell(
-                            onTap: playPause,
-                            child: Icon(
-                              isPlaying ? Icons.pause_circle_rounded : Icons.play_circle_fill_rounded,
-                              color: Colors.white,
-                              size: 50,
-                            ),
-                          ),
-                          InkWell(
-                            onTap: () async {
-                              await player.seek(Duration(seconds: _position.inSeconds + 10));
-                            },
-                            child: const Icon(
-                              Icons.fast_forward,
-                              color: Colors.white,
-                              size: 40,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ) : const Center(child: CircularProgressIndicator(
-            color: appBackground3,
-          ),),
-        ),
+      body: isLoading
+          ? loadSplashScreen()
+          : Stack(
+        children: [
+          _buildBackground(),
+          Container(
+            color: Colors.black.withOpacity(0.4),
+          ),
+          SafeArea(child: _buildContent()),
+        ],
       ),
     );
   }

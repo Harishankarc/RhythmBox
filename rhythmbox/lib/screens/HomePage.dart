@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:rhythmbox/auth/login.dart';
 import 'package:rhythmbox/screens/nowplaying.dart';
+import 'package:rhythmbox/screens/splashscreen.dart';
 import 'package:rhythmbox/utils/apifromdb.dart';
 import 'package:rhythmbox/utils/conectivityservice.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,13 +27,13 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   final Apifromdb data = Apifromdb();
   late final _currentUser;
-
   List<Map<String, dynamic>>? songdata;
   List<Map<String, dynamic>> suggestionSong = [];
 
   @override
   void initState() {
     super.initState();
+
     _conectivityservice.checkInternet(context);
     _currentUser = Supabase.instance.client.auth.currentUser;
     checkSession();
@@ -68,6 +69,7 @@ class _HomePageState extends State<HomePage> {
     return filteredSongs ?? [];
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +78,7 @@ class _HomePageState extends State<HomePage> {
         onPanUpdate: (details) {
           if (details.delta.dx.abs() > details.delta.dy.abs()) {
             if (details.delta.dx < 0) {
-              Get.to(() => const Profile(),
+              Get.to(() => Profile(),
                   transition: Transition.cupertino,
                   duration: const Duration(milliseconds: 500));
             }
@@ -105,7 +107,6 @@ class _HomePageState extends State<HomePage> {
                             Text(
                               'Welcome',
                               style: TextStyle(
-                                  fontFamily: appFont,
                                   color: Colors.white54,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w400),
@@ -113,7 +114,6 @@ class _HomePageState extends State<HomePage> {
                             Text(
                               'Find your best',
                               style: TextStyle(
-                                  fontFamily: appFont,
                                   color: appTextColor,
                                   fontSize: 35,
                                   fontWeight: FontWeight.w600),
@@ -121,7 +121,6 @@ class _HomePageState extends State<HomePage> {
                             Text(
                               'good Music',
                               style: TextStyle(
-                                  fontFamily: appFont,
                                   color: appTextColor,
                                   fontSize: 35,
                                   fontWeight: FontWeight.w600),
@@ -130,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            Get.to(() => const Profile(),
+                            Get.to(() => Profile(),
                                 transition: Transition.cupertino,
                                 duration:
                                     const Duration(milliseconds: 500));
@@ -154,7 +153,7 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     TextFormField(
                       controller: _searchController,
                       onChanged: (value) {
@@ -165,16 +164,16 @@ class _HomePageState extends State<HomePage> {
                       style: const TextStyle(color: appTextColor),
                       cursorColor: appTextColor,
                       decoration: const InputDecoration(
-                          fillColor: buttonOverlay,
+                          fillColor: appBackground,
                           filled: true,
                           border: OutlineInputBorder(
                               borderRadius:
-                                  BorderRadius.all(Radius.circular(20)),
-                              borderSide: BorderSide(color: appTextColor)),
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: appTextColor,width: 0.1)),
                           focusedBorder: OutlineInputBorder(
                               borderRadius:
-                                  BorderRadius.all(Radius.circular(20)),
-                              borderSide: BorderSide(color: Colors.transparent)),
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: appTextColor,width: 0.1)),
                           prefixIcon: Icon(
                             CupertinoIcons.search,
                             color: appTextColor,
@@ -182,7 +181,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                           hintText: 'Search for title, artist, songs...',
                           hintStyle: TextStyle(
-                              fontFamily: appFont,
                               color: Colors.white54,
                               fontSize: 15,
                               fontWeight: FontWeight.w400)),
@@ -224,7 +222,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               onTap: () {
-                                Get.to(() => NowPlaying(id: suggestion['id']));
+                                Get.to(() => NowPlaying(song_id: suggestion['id'],user_id: _currentUser?.email,));
                               },
                             ),
                           );
@@ -237,7 +235,6 @@ class _HomePageState extends State<HomePage> {
                         const Text(
                           'Trending',
                           style: TextStyle(
-                              fontFamily: appFont,
                               color: appTextColor,
                               fontSize: 20,
                               fontWeight: FontWeight.w500),
@@ -252,7 +249,6 @@ class _HomePageState extends State<HomePage> {
                           child: const Text(
                             'View more',
                             style: TextStyle(
-                                fontFamily: appFont,
                                 color: Colors.deepOrangeAccent,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w500),
@@ -271,7 +267,7 @@ class _HomePageState extends State<HomePage> {
                             final song = songdata![index];
                             return GestureDetector(
                               onTap: () {
-                                Get.to(() => NowPlaying(id: song['id']),
+                                Get.to(() => NowPlaying(song_id: song['id'],user_id: _currentUser?.email,),
                                     transition: Transition.downToUp,
                                     duration:
                                         const Duration(milliseconds: 300));
@@ -310,7 +306,6 @@ class _HomePageState extends State<HomePage> {
                                             Text(
                                               song['title'] ?? '',
                                               style: const TextStyle(
-                                                  fontFamily: appFont,
                                                   color: appTextColor,
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w600),
@@ -318,7 +313,6 @@ class _HomePageState extends State<HomePage> {
                                             Text(
                                               song['artist'] ?? '',
                                               style: const TextStyle(
-                                                  fontFamily: appFont,
                                                   color: appTextColor,
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w400),
@@ -342,7 +336,6 @@ class _HomePageState extends State<HomePage> {
                     const Text(
                       'Picked for you',
                       style: TextStyle(
-                          fontFamily: appFont,
                           color: appTextColor,
                           fontSize: 25,
                           fontWeight: FontWeight.w600),
@@ -357,7 +350,7 @@ class _HomePageState extends State<HomePage> {
                           final song = songdata![index];
                           return GestureDetector(
                             onTap: () {
-                              Get.to(() => NowPlaying(id: song['id']),
+                              Get.to(() => NowPlaying(song_id: song['id'],user_id: _currentUser?.email,),
                                   transition: Transition.downToUp,
                                   duration: const Duration(milliseconds: 300));
                             },
@@ -365,7 +358,9 @@ class _HomePageState extends State<HomePage> {
                               margin: const EdgeInsets.only(bottom: 15),
                               decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
-                                  color: buttonOverlay),
+                                  color: appBackground,
+                                  border: Border.all(width: 0.1,color: Colors.white)
+                                  ),
                               child: ListTile(
                                 leading: Image.memory(
                                   song['album'] as Uint8List,
@@ -376,7 +371,6 @@ class _HomePageState extends State<HomePage> {
                                 title: Text(
                                   song['title'] ?? '',
                                   style: const TextStyle(
-                                      fontFamily: appFont,
                                       color: appTextColor,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w600),
@@ -384,13 +378,12 @@ class _HomePageState extends State<HomePage> {
                                 subtitle: Text(
                                   song['artist'] ?? '',
                                   style: const TextStyle(
-                                      fontFamily: appFont,
                                       color: appTextColor,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w400),
                                 ),
                                 trailing: const Icon(
-                                  Icons.play_circle_outlined,
+                                  Icons.play_arrow,
                                   color: appTextColor,
                                   size: 35,
                                 ),

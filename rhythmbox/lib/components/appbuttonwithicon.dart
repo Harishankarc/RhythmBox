@@ -18,14 +18,13 @@ class AppButtonWithIcon extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(5),
           ),
-          
+
         ),
         onPressed: onPressed,
         icon: icon != null ? Icon(icon) : const SizedBox.shrink(),
         label: Text(
           text,
           style: TextStyle(
-              fontFamily: appFont,
               color: appTextColor,
               fontSize: 15,
               fontWeight: FontWeight.w500),
